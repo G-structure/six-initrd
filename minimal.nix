@@ -11,14 +11,25 @@
 # of the initramfs (e.g. "bin/signify") and the corresponding value is
 # the file to be copied to that location (e.g. "${signify}/bin/signify).
 #
-# - If the attrvalue has a trailing "/" then both the source and
-#   destination are considered to be directories; the source will be
-#   copied recursively, and symbolic links therein will be preserved
-#   (i.e. not dereferenced).  See `withBusybox` below for an example.
+# - If the attrvalue is NOT a store path (i.e. does NOT begin with
+#   `builtins.storeDir` which is usually "/nix/store/"), then a symbolic link is
+#   created from the attrname to the attrvalue.  For example,
 #
-# - If the attrvalue does NOT have a trailing "/" then both the
-#   source and destination are considered to be files.  If the
-#   source is a symbolic link it will be dereferenced before copying.
+#     "usr/bin" = "../bin"
+#
+#   Will cause the builder to execute (approximately) this command
+#
+#     ln -s ../bin usr/bin
+#
+# - If the attrvalue is a store path and has a trailing "/" then both the source
+#   and destination are considered to be directories; the source will be copied
+#   recursively, and symbolic links therein will be preserved (i.e. not
+#   dereferenced).  See `withBusybox` below for an example.
+#
+# - If the attrvalue is a store path and does NOT have a trailing "/" then both
+#   the source and destination are considered to be files; the source will be
+#   copied to the destination.  If the source is a symbolic link it will be
+#   dereferenced before copying.
 #
 # After copying, `chmod -R u+w` is performed, since the contents are
 # likely to be coming from /nix/store where Nix clears the u-w bit.
@@ -66,6 +77,11 @@ let
     lib.listToAttrs
   ]) // lib.optionalAttrs (busybox != null) {
     "bin" = "${busybox}/bin/";
+  }  // lib.optionalAttrs symlinkSbinToBin {
+    "sbin" = "bin";
+  }  // lib.optionalAttrs symlinkUsrToRoot {
+    "usr/bin" = "../bin";
+    "usr/sbin" = "../sbin";
   } // contents;
 
 in pkgsForHost.pkgsStatic.stdenv.mkDerivation {
@@ -77,15 +93,12 @@ in pkgsForHost.pkgsStatic.stdenv.mkDerivation {
     mkdir build
     pushd build
     runHook preBuild
-  '' + lib.optionalString symlinkSbinToBin ''
-    ln -s bin sbin
-  '' + lib.optionalString symlinkUsrToRoot ''
-    mkdir -p usr
-    ln -s ../bin usr/bin
-    ln -s ../sbin usr/sbin
   '' + (lib.pipe contents' [
         (lib.mapAttrsToList (dest: src:
-          if lib.hasSuffix "/" src then ''
+          if !(lib.hasPrefix builtins.storeDir src) then ''
+            mkdir -p ${lib.escapeShellArg (builtins.dirOf dest)}
+            ln -sT ${lib.escapeShellArg src} ${lib.escapeShellArg dest}
+          '' else if lib.hasSuffix "/" src then ''
             mkdir -p ${lib.escapeShellArg (builtins.dirOf dest)}
             cp -Tr ${lib.escapeShellArg src} ${lib.escapeShellArg dest}
             chmod -R u+w ${lib.escapeShellArg dest}
