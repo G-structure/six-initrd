@@ -74,7 +74,7 @@
 { lib
 , pkgsForBuild
 , pkgsForHost
-, ttys ? { tty0 = null; }  # attrset of <ttyname>=<speed>; speed==null is allowed
+, ttys ? throw "ttys argument is required" # attrset of <ttyname>=<speed>; speed==null is allowed; e.g. { tty0 = null; }
 }:
 
 let
