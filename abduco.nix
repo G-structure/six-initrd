@@ -110,6 +110,8 @@ let
 
     echo "init: ensuring /early/{fail,run,finish} exist"
     # we can't symlink /early/fail directly to /bin/sh because busybox cares about argv[0]
+    echo -e '#!/bin/sh\nexec /bin/sh' > /early/missing
+    chmod +x /early/missing
     if [ \! -e /early/fail   ]; then ln -s /early/missing /early/fail;   fi
     if [ \! -e /early/run    ]; then ln -s /early/missing /early/run;    fi
     if [ \! -e /early/finish ]; then ln -s /early/missing /early/finish; fi
