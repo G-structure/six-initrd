@@ -73,8 +73,9 @@
 #
 { lib ? pkgs.lib
 , pkgs
-, ttys ? throw "ttys argument is required" # attrset of <ttyname>=<speed>; speed==null is allowed; e.g. { tty0 = null; }
 }:
+
+{ ttys }: # attrset of <ttyname>=<speed>; speed==null is allowed; e.g. { tty0 = null; }
 
 let
   initScript = pkgs.buildPackages.writeScript "init" (''
