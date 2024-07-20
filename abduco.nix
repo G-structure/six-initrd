@@ -56,8 +56,11 @@
 # You should create your own `/early/run` and include it in the initrd, like this:
 #
 #   lib.pipe six-initrd.minimal [
-#     (initrd: initrd.override (six-initrd.abduco { ttys = ... };))
-#     (initrd: initrd.override (previousArgs: {
+#     (initrd: initrd.override (previousArgs: previousArgs // {
+#       contents = (previousArgs.contents or {}) //
+#                  { contents = six-initrd.abduco { ttys = ... }; };
+#     }))
+#     (initrd: initrd.override (previousArgs: previousArgs // {
 #       contents = (previousArgs.contents or {}) // {
 #         "/early/run" = pkgs.writeScript "early-run.sh" ''
 #           #!/bin/sh
@@ -150,19 +153,19 @@ let
     /early/run || exit $? # not exec()ed due to possible abduco bug (console flood)
     exit 0
   '');
-in previousArgs: {
-  contents = (previousArgs.contents or {}) // {
-    "init" = "/early/init";
-    "bin/abduco" = "${pkgs.pkgsStatic.abduco}/bin/abduco";
-    "early/init" = "${initScript}";
-    "early/missing" = pkgs.buildPackages.writeScript "missing.sh" ''
-      #!/bin/sh
-      export PS1=initrd-$(basename $0)-pid1\#
-      exec /bin/sh
-    '';
-    "early/abduco-session.sh" = "${abduco-session-sh}";
-    "etc/fstab" = builtins.toFile "fstab" ''
-    '';
-  };
+
+in {
+  "init" = "/early/init";
+  "bin/abduco" = "${pkgs.pkgsStatic.abduco}/bin/abduco";
+  "early/init" = "${initScript}";
+  "early/missing" = pkgs.buildPackages.writeScript "missing.sh" ''
+    #!/bin/sh
+    export PS1=initrd-$(basename $0)-pid1\#
+    exec /bin/sh
+  '';
+  "early/abduco-session.sh" = "${abduco-session-sh}";
+  "etc/fstab" = builtins.toFile "fstab" ''
+  '';
 }
+
 
