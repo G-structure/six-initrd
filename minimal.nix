@@ -35,6 +35,17 @@
 #
 #     ln -s ../bin usr/bin
 #
+# - If the attrvalue is a list, then:
+#
+#     1. "#!/bin/sh\n" is prepended to the list
+#     2. The resulting list is passed to `concatStrings`
+#     3. The resulting string is passed to `builtins.toFile`
+#     4. The resulting store path is copied to the destination and `chmod a+x`
+#        is performed on it.
+#
+#   This provides an easy way to write shell scripts incrementally, with
+#   overlays appending or prepending lines to existing scripts.
+#
 # In all of the above cases: after copying, `chmod -R u+w` is performed, since
 # the contents are likely to be coming from /nix/store where Nix clears the u-w
 # the contents arebit.
@@ -99,19 +110,32 @@ in pkgs.pkgsStatic.stdenv.mkDerivation {
     pushd build
     runHook preBuild
   '' + (lib.pipe contents' [
-        (lib.mapAttrsToList (dest: src:
-          if !(lib.hasPrefix builtins.storeDir src) then ''
+        (lib.mapAttrsToList (dest: src_:
+          let
+            writeScript = lib.isList src_;
+            src =
+              if !writeScript
+              then src_
+              else builtins.toFile
+                (builtins.baseNameOf dest)
+                (lib.concatStrings ([ ''
+                #!/bin/sh
+                ''] ++ src_));
+          in if !(lib.hasPrefix builtins.storeDir src) then ''
             mkdir -p ${lib.escapeShellArg (builtins.dirOf dest)}
             ln -sT ${lib.escapeShellArg src} ${lib.escapeShellArg dest}
           '' else if lib.hasSuffix "/" src then ''
             mkdir -p ${lib.escapeShellArg (builtins.dirOf dest)}
             cp -Tr ${lib.escapeShellArg src} ${lib.escapeShellArg dest}
             chmod -R u+w ${lib.escapeShellArg dest}
-          '' else ''
+          '' else (''
             install -vDT ${lib.escapeShellArg src} ${lib.escapeShellArg dest}
-          ''))
+          '' + lib.optionalString writeScript ''
+            chmod a+x ${lib.escapeShellArg dest}
+          ''
+          )))
         lib.concatStrings
-      ]) +
+  ]) +
   ''
     runHook postBuild
     popd
