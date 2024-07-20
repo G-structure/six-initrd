@@ -71,14 +71,13 @@
 #     }))
 #
 #
-{ lib
-, pkgsForBuild
-, pkgsForHost
+{ lib ? pkgs.lib
+, pkgs
 , ttys ? throw "ttys argument is required" # attrset of <ttyname>=<speed>; speed==null is allowed; e.g. { tty0 = null; }
 }:
 
 let
-  initScript = pkgsForBuild.writeScript "init" (''
+  initScript = pkgs.buildPackages.writeScript "init" (''
     #!/bin/sh
     export PS1=initrd-pid1\#
 
@@ -142,7 +141,7 @@ let
       echo "init: attaching abduco client on /dev/${tty}"
       abduco -a init < /dev/${tty} > /dev/${tty} 2>&1 &
     '') ttys);
-  in pkgsForBuild.writeScript "abduco-session.sh" (''
+  in pkgs.buildPackages.writeScript "abduco-session.sh" (''
     #!/bin/sh
     echo "init: in abduco session"
     ${setup-ttys}
@@ -153,9 +152,9 @@ let
 in previousArgs: {
   contents = (previousArgs.contents or {}) // {
     "init" = "/early/init";
-    "bin/abduco" = "${pkgsForHost.pkgsStatic.abduco}/bin/abduco";
+    "bin/abduco" = "${pkgs.pkgsStatic.abduco}/bin/abduco";
     "early/init" = "${initScript}";
-    "early/missing" = pkgsForBuild.writeScript "missing.sh" ''
+    "early/missing" = pkgs.buildPackages.writeScript "missing.sh" ''
       #!/bin/sh
       export PS1=initrd-$(basename $0)-pid1\#
       exec /bin/sh

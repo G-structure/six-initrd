@@ -1,10 +1,9 @@
-{ lib
-, pkgsForHost
-, pkgsForBuild
+{ lib ? pkgs.lib
+, pkgs
 
 # In the unlikely event that you don't want busybox in your initrd, set this to
 # null.
-, busybox ? pkgsForHost.pkgsStatic.busybox
+, busybox ? pkgs.pkgsStatic.busybox
 
 # An attrset containing additional files to include in the initramfs
 # image.  Each attrname in this set is a path relative to the root
@@ -84,7 +83,7 @@ let
     "usr/sbin" = "../sbin";
   } // contents;
 
-in pkgsForHost.pkgsStatic.stdenv.mkDerivation {
+in pkgs.pkgsStatic.stdenv.mkDerivation {
   name = "initramfs.cpio${suffix}";
   dontUnpack = true;
   dontFixup = true;
@@ -116,8 +115,8 @@ in pkgsForHost.pkgsStatic.stdenv.mkDerivation {
     runHook preInstall
     chmod -R u+w build
     pushd build
-    ${pkgsForBuild.findutils}/bin/find . \
-      | ${pkgsForBuild.cpio}/bin/cpio --create -H newc -R +0:+0 \
+    ${pkgs.buildPackages.findutils}/bin/find . \
+      | ${pkgs.buildPackages.cpio}/bin/cpio --create -H newc -R +0:+0 \
       | ${compressor} \
       > $out
     popd
