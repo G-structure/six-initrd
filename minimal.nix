@@ -10,6 +10,11 @@
 # of the initramfs (e.g. "bin/signify") and the corresponding value is
 # the file to be copied to that location (e.g. "${signify}/bin/signify).
 #
+# lib.fileset can't represent empty directories, so it is not usable here.
+# There are quite a large number of empty directories which, if missing from the
+# initrd, will cause a kernel panic (e.g. CONFIG_DEVTMPFS without a `/dev`, or
+# attempting to `mount /proc` from `sh -e` as PID 1).
+#
 # - If the attrvalue is a store path and does NOT have a trailing "/" then both
 #   the source and destination are considered to be files; the source will be
 #   copied to the destination.  If the source is a symbolic link it will be
