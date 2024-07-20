@@ -10,6 +10,16 @@
 # of the initramfs (e.g. "bin/signify") and the corresponding value is
 # the file to be copied to that location (e.g. "${signify}/bin/signify).
 #
+# - If the attrvalue is a store path and does NOT have a trailing "/" then both
+#   the source and destination are considered to be files; the source will be
+#   copied to the destination.  If the source is a symbolic link it will be
+#   dereferenced before copying.
+#
+# - If the attrvalue is a store path and has a trailing "/" then both the source
+#   and destination are considered to be directories; the source will be copied
+#   recursively, and symbolic links therein will be preserved (i.e. not
+#   dereferenced).  See `withBusybox` below for an example.
+#
 # - If the attrvalue is NOT a store path (i.e. does NOT begin with
 #   `builtins.storeDir` which is usually "/nix/store/"), then a symbolic link is
 #   created from the attrname to the attrvalue.  For example,
@@ -20,18 +30,9 @@
 #
 #     ln -s ../bin usr/bin
 #
-# - If the attrvalue is a store path and has a trailing "/" then both the source
-#   and destination are considered to be directories; the source will be copied
-#   recursively, and symbolic links therein will be preserved (i.e. not
-#   dereferenced).  See `withBusybox` below for an example.
-#
-# - If the attrvalue is a store path and does NOT have a trailing "/" then both
-#   the source and destination are considered to be files; the source will be
-#   copied to the destination.  If the source is a symbolic link it will be
-#   dereferenced before copying.
-#
-# After copying, `chmod -R u+w` is performed, since the contents are
-# likely to be coming from /nix/store where Nix clears the u-w bit.
+# In all of the above cases: after copying, `chmod -R u+w` is performed, since
+# the contents are likely to be coming from /nix/store where Nix clears the u-w
+# the contents arebit.
 #
 , contents ? {}
 
