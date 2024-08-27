@@ -60,18 +60,25 @@
 
 # a list of paths (relative to ${kernel}/lib/modules/*/kernel) to modules .ko
 # files which should be included in the initrd
-, modules ? [ ]
+, module-names ? [ ]
 
-# if `modules!=[]`, this should be a derivation from which to copy the kernel
-# modules.  Must have attribute `version`.
+# if `module-names!=[]`, this should be a derivation from which to copy the kernel
+# module-names.  Must have attribute `version`.
 , kernel ? null
 
 , compress ? false
 
 }:
-assert kernel==null && modules != [] -> throw "kernel is required if modules!=[]";
+assert kernel==null && module-names != [] -> throw "kernel is required if module-names!=[]";
 
 let
+  modules-closure =
+    pkgs.makeModulesClosure {
+      inherit kernel;
+      firmware = pkgs.linux-firmware;
+      rootModules = module-names;
+      #allowMissing ? false;
+    };
   compressor =
     if compress == false
     then "cat"
@@ -84,14 +91,9 @@ let
     else {
       "gzip" = ".gz";
     }.${compress};
-  contents' = (lib.pipe modules [
-    (map (m: let name = "${kernel.version}/kernel/${m}";
-             in {
-               name = "lib/modules/${name}";            # dest
-               value = "${kernel}/lib/modules/${name}"; # source
-             }))
-    lib.listToAttrs
-  ]) // lib.optionalAttrs (busybox != null) {
+  contents' = lib.optionalAttrs (module-names != []) {
+    "lib/modules" = "${modules-closure}/lib/modules/";
+  } // lib.optionalAttrs (busybox != null) {
     "bin" = "${busybox}/bin/";
   }  // lib.optionalAttrs symlinkSbinToBin {
     "sbin" = "bin";
@@ -154,6 +156,6 @@ in pkgs.pkgsStatic.stdenv.mkDerivation {
   '';
 
   passthru = {
-    inherit modules;
+    inherit module-names;
   };
 }
