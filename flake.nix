@@ -7,7 +7,15 @@
   };
 
   outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
+    let
+      # Overlay function available for all systems
+      overlay = final: prev: {
+        sixInitrd = import ./default.nix { lib = final.lib; pkgs = final; };
+      };
+    in {
+      # Expose overlay at top-level (system-independent)
+      overlays.default = overlay;
+    } // flake-utils.lib.eachDefaultSystem (system:
       let
         # six-initrd only builds on Linux systems (needs busybox, etc.)
         supported = builtins.match ".*-linux" system != null;
@@ -24,13 +32,6 @@
 
           # 2. convenient variant: gzip-compressed initramfs
           minimal-gz = six.minimal.override { compress = "gzip"; };
-        };
-
-        # -------------------------------------------------------------------
-        # Overlays
-        # -------------------------------------------------------------------
-        overlays.default = final: prev: {
-          sixInitrd = import ./default.nix { lib = final.lib; pkgs = final; };
         };
 
         # -------------------------------------------------------------------
