@@ -8,52 +8,43 @@
 
   outputs = { self, nixpkgs, flake-utils }:
     let
-      # Overlay function available for all systems
       overlay = final: prev: {
         sixInitrd = import ./default.nix { lib = final.lib; pkgs = final; };
       };
-    in {
-      # Expose overlay at top-level (system-independent)
-      overlays.default = overlay;
-    } // flake-utils.lib.eachDefaultSystem (system:
+    in
+    flake-utils.lib.eachDefaultSystem (system:
       let
-        # six-initrd only builds on Linux systems (needs busybox, etc.)
+        # Skip non-Linux systems early to avoid evaluation errors on e.g. Darwin
         supported = builtins.match ".*-linux" system != null;
-        pkgs = import nixpkgs { inherit system; overlays = []; };
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [];
+        };
         six = import ./default.nix { inherit (pkgs) lib; inherit pkgs; };
       in
       if supported then {
-        # -------------------------------------------------------------------
-        # Packages
-        # -------------------------------------------------------------------
+        # 1. Expose the plain derivation (uncompressed cpio)
         packages = {
-          # 1. plain, un-compressed CPIO archive
           minimal = six.minimal;
-
-          # 2. convenient variant: gzip-compressed initramfs
+          # Handy variant: gzip-compressed initramfs
           minimal-gz = six.minimal.override { compress = "gzip"; };
         };
 
-        # -------------------------------------------------------------------
-        # Library helpers (expose abduco overlay, etc.)
-        # -------------------------------------------------------------------
+        # 2. Library output for helpers like `abduco`
         lib = six // { inherit (six) minimal abduco; };
 
-        # -------------------------------------------------------------------
-        # CI / nix flake check – minimal smoke build
-        # -------------------------------------------------------------------
+        # 3. Trivial check: build once in CI
         checks.build = self.packages.${system}.minimal;
 
-        # -------------------------------------------------------------------
-        # Development conveniences
-        # -------------------------------------------------------------------
+        # 4. Development shell with formatter and just
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [ just nixpkgs-fmt ];
           shellHook = "just --list || true";
         };
 
         formatter = pkgs.nixpkgs-fmt;
-      } else {
-        # Non-Linux systems: return an empty attrset to avoid evaluation errors
-      });
+      } else {}
+    ) // {
+      overlays.default = overlay;
+    };
 } 
